@@ -1,11 +1,4 @@
 package singa;
 import "job.proto";
 
-message HiddenProto {
-  required int32 num_output = 1;
-  optional bool use_stanh = 2 [default = true];
-}
-
-extend LayerProto {
-  optional HiddenProto hidden_conf = 102;
-}
+// please add the definition of HiddenProto

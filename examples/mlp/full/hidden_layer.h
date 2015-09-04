@@ -8,6 +8,15 @@ class HiddenLayer : public NeuronLayer {
   void Setup(const LayerProto& proto, int npartitions) override;
   void ComputeFeature(int flag, Metric* perf) override;
   void ComputeGradient(int flag, Metric* perf) override;
+  const std::vector<Param*> GetParams() const override {
+    std::vector<Param*> params{weight_, bias_};
+    return params;
+  }
 
-// please fill HiddenLayer class declaration
+ private:
+  int batchsize_;
+  int vdim_, hdim_;
+  bool transpose_;
+  Param *weight_, *bias_;
+};
 }
