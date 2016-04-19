@@ -129,8 +129,8 @@ void SGDUpdater::Update(int step, Param* param, float grad_scale) {
   if (clip_high_ > clip_low_)
     Clip(clip_low_, clip_high_, param);
   Shape<1> s = Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   float lr = lr_gen_->Get(step) * param->lr_scale();
   float wd = weight_decay_ * param->wd_scale();
   grad *= grad_scale;
@@ -152,8 +152,8 @@ void NesterovUpdater::Update(int step, Param* param, float grad_scale) {
     Clip(clip_low_, clip_high_, param);
 
   Shape<1> s = Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   TensorContainer<cpu, 1> tmp(s);
   float lr = lr_gen_->Get(step)*param->lr_scale();
@@ -171,8 +171,8 @@ void AdaGradUpdater::Update(int step, Param* param, float grad_scale) {
   if (clip_high_ > clip_low_)
     Clip(clip_low_, clip_high_, param);
   Shape<1> s = Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   float lr = lr_gen_->Get(step)*param->lr_scale();
   float wd = weight_decay_*param->wd_scale();
@@ -195,8 +195,8 @@ void RMSPropUpdater::Update(int step, Param* param, float grad_scale) {
     Clip(clip_low_, clip_high_, param);
 
   Shape<1> s=Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   float lr = lr_gen_->Get(step) * param->lr_scale();
   float wd = weight_decay_ * param->wd_scale();
@@ -215,8 +215,8 @@ void AdaDeltaUpdater::Init(const UpdaterProto& proto){
 
 void AdaDeltaUpdater::Update(int step, Param* param, float grad_scale){
   Shape<1> s=Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   Tensor<cpu, 1> update(param->mutable_cpu_update(), s);
   TensorContainer<cpu, 1> tmp(s);
@@ -241,8 +241,8 @@ void AdamUpdater::Init(const UpdaterProto &proto) {
 
 void AdamUpdater::Update(int step, Param* param, float grad_scale) {
   Shape<1> s=Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   Tensor<cpu, 1> update(param->mutable_cpu_update(), s);
   float wd = weight_decay_*param->wd_scale();
@@ -265,8 +265,8 @@ void AdamMaxUpdater::Init(const UpdaterProto &proto) {
 
 void AdamMaxUpdater::Update(int step, Param* param, float grad_scale) {
   Shape<1> s=Shape1(param->size());
-  Tensor<cpu, 1> data(param->mutable_cpu_data(), s);
-  Tensor<cpu, 1> grad(param->mutable_cpu_grad(), s);
+  Tensor<cpu, 1> data(param->mutable_comm_data(), s);
+  Tensor<cpu, 1> grad(param->mutable_comm_grad(), s);
   Tensor<cpu, 1> history(param->mutable_cpu_history(), s);
   Tensor<cpu, 1> update(param->mutable_cpu_update(), s);
   float wd = weight_decay_*param->wd_scale();

@@ -214,12 +214,15 @@ class Param {
     */
   inline const std::vector<int>& shape() const { return data_.shape(); }
   inline int size() const { return data_.count(); }
+  inline int comm_size() const { return comm_data_.count(); }
   inline const Blob<float>& data() const { return data_; }
   inline Blob<float>* mutable_data() { return &data_; }
   inline const Blob<float> &grad() const { return grad_; }
   inline Blob<float> *mutable_grad() { return &grad_; }
   inline float* mutable_cpu_data() { return data_.mutable_cpu_data(); }
   inline float* mutable_cpu_grad() { return grad_.mutable_cpu_data(); }
+  inline float* mutable_comm_data() { return comm_data_.mutable_cpu_data(); }
+  inline float* mutable_comm_grad() { return comm_grad_.mutable_cpu_data(); }
   inline float* mutable_cpu_history() { return history_.mutable_cpu_data(); }
   inline float* mutable_cpu_update() { return update_.mutable_cpu_data(); }
   /**
@@ -358,7 +361,7 @@ class Param {
   std::vector<bool> pending_update_;
   int num_pending_requests_ = 0;
   // data, gradient, history gradient of this parameter
-  Blob<float> data_, grad_, history_, update_;
+  Blob<float> data_, grad_, history_, update_, comm_data_, comm_grad_;
   ParamProto proto_;
 };
 

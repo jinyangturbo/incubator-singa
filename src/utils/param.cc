@@ -112,7 +112,7 @@ const vector<int> Param::ComputeSlices(int num, const vector<Param*>& params) {
   std::vector<int> paramsize;
   for (auto param : params)
     if (param->id() == param->owner())
-      paramsize.push_back(param->size());
+      paramsize.push_back(param->comm_size());
   // slice into lcm pieces to achieve good load-balance for both intra-group
   // partition (among servers in a group) and inter-group partition (each group
   // is assgined a sub-set of slices)
@@ -133,12 +133,12 @@ void Param::SliceParams(int num, const vector<Param*>& params) {
   for (auto param : params) {
     if (param->id() == param->owner()) {
       int len = 0;
-      while (len < param->size() && it != slices.end()) {
+      while (len < param->comm_size() && it != slices.end()) {
         paramid2slices[param->id()].push_back(std::make_pair(slice_id++, *it));
         len += *it;
         it++;
       }
-      CHECK_EQ(param->size(), len) << "length misamtch for ID=" << param->id();
+      CHECK_EQ(param->comm_size(), len) << "length misamtch for ID=" << param->id();
     }
   }
   for (auto param : params) {
@@ -155,6 +155,7 @@ void Param::Setup(const vector<int>& shape) {
   grad_.Reshape(shape);
   history_.Reshape(shape);
   update_.Reshape(shape);
+  //todo:  init comm_data_ and comm_grad_?
 }
 
 void Param::InitValues() {
@@ -163,7 +164,8 @@ void Param::InitValues() {
 
 void Param::InitValues(int version) {
   ParamGenerator* gen = ParamGenerator::Create(proto_.init());
-  gen->Fill(&data_);
+  gen->Fill(&comm_data_);
+  //todo: comm_data_ to data_
   set_version(version);
 }
 
@@ -176,8 +178,12 @@ void Param::ShareDataFrom(Param* other, bool cpu_only) {
   proto_.set_owner(other->owner());
   CHECK_EQ(data_.count(), other->data_.count());
   data_.ShareData(&(other->data_), cpu_only);
+  CHECK_EQ(comm_data_.count(), other->comm_data_.count());
+  comm_data_.ShareData(&(other->comm_data_), cpu_only);
   if (grad_.count() == 0)
     grad_.Reshape(data_.shape());
+  if (comm_grad_.count() == 0)
+    comm_grad_.Reshape(comm_data_.shape());
   version_ = other->version_;
   last_version_ = other->last_version_;
   slice_start_ = other->slice_start_;
@@ -197,20 +203,23 @@ void Param::ShareFrom(Param* other) {
 
   ShareDataFrom(other, false);
   grad_.ShareData(&(other->grad_), false);
+  comm_grad_.ShareData(&(other->comm_grad_), false);
 }
 
 void Param::FromProto(const string str) {
   BlobProto blob;
   blob.ParseFromString(str);
-  data_.FromProto(blob);
+  comm_data_.FromProto(blob);
+  //todo generate data_ from comm_data_
 }
 
 void Param::FromProto(const BlobProto& blob) {
-  data_.FromProto(blob);
+  comm_data_.FromProto(blob);
+  //todo generate data_ from comm_data_
 }
 
 void Param::ToProto(BlobProto* blob) {
-  data_.ToProto(blob);
+  comm_data_.ToProto(blob);
 }
 
 void Param::AddSlice(int slice_id, int size) {
@@ -234,7 +243,7 @@ Msg* Param::GenPutMsg(bool copy, int idx) {
   CHECK_LT(idx, num_slices_);
   Msg* msg = new Msg();
   msg->set_type(kPut);
-  const void* ptr = data_.cpu_data() + slice_offset_[idx];
+  const void* ptr = comm_data_.cpu_data() + slice_offset_[idx];
   const void* p = ptr;
   if (copy) p = nullptr;
   msg->AddFormatFrame("iffp", slice_size_[idx], lr_scale(), wd_scale(), p);
@@ -249,7 +258,7 @@ Msg* Param::GenGetMsg(bool copy, int idx) {
   CHECK_LT(idx, num_slices_);
   Msg* msg = new Msg();
   msg->set_type(kGet);
-  msg->AddFormatFrame("ip",  copy, data_.mutable_cpu_data()
+  msg->AddFormatFrame("ip",  copy, comm_data_.mutable_cpu_data()
       + slice_offset_[idx]);
   pending_get_[idx] = true;
   num_pending_requests_++;
@@ -261,7 +270,8 @@ Msg* Param::GenUpdateMsg(bool copy, int idx) {
   Msg* msg = new Msg();
   msg->set_type(kUpdate);
   msg->AddFormatFrame("i", copy);
-  const void* ptr = grad_.cpu_data() + slice_offset_[idx];
+  //todo: from grad_ to comm_ grad_
+  const void* ptr = comm_grad_.cpu_data() + slice_offset_[idx];
   if (copy) {
     msg->AddFrame(ptr, slice_size_[idx]*sizeof(float));
   } else {
@@ -278,7 +288,7 @@ Msg* Param::GenSyncMsg(int offset, int size) {
   msg->set_type(kSyncRequest);
   msg->set_trgt(ParamTrgt(-1, id()), last_version());
   // always copy data because syn is between server groups in diff procs
-  msg->AddFrame(mutable_cpu_data(), data_.count()*sizeof(float));
+  msg->AddFrame(mutable_comm_data(), comm_data_.count()*sizeof(float));
   return msg;
 }
 
@@ -299,9 +309,9 @@ Msg* Param::HandlePutMsg(Msg** msg, bool reserve) {
   if (ptr == nullptr) {
     CHECK((*msg)->NextFrame());
     CHECK_EQ(size * sizeof(float), (*msg)->FrameSize());
-    memcpy(mutable_cpu_data(), (*msg)->FrameData(), size * sizeof(float));
+    memcpy(mutable_comm_data(), (*msg)->FrameData(), size * sizeof(float));
   } else {
-    data_.set_cpu_data(ptr);
+    comm_data_.set_cpu_data(ptr);
   }
   if (!reserve) DeleteMsg(msg);
   return nullptr;
@@ -314,8 +324,8 @@ Msg* Param::HandleGetMsg(Msg** msg, bool reserve) {
   float* ptr;
   (*msg)->ParseFormatFrame("ip", &copy, &ptr);
   if (copy) {
-    (*msg)->AddFrame(mutable_cpu_data(), sizeof(float) * size());
-  } else if (ptr != data_.cpu_data()) {
+    (*msg)->AddFrame(mutable_comm_data(), sizeof(float) * size());
+  } else if (ptr != comm_data_.cpu_data()) {
     // this case reflects following situation:
     // worker 0 and server are in the same process, while worker 1 is not.
     // worker 1 "put" data into server, so server need to allocate memory.
@@ -323,8 +333,8 @@ Msg* Param::HandleGetMsg(Msg** msg, bool reserve) {
     //  1. copy the data to the worker0 provided space
     //  2. change its own pointer to that space in order to share memory
     // in this case, the server always points to last worker's space
-    memcpy(ptr, data_.cpu_data(), sizeof(float) * size());
-    data_.set_cpu_data(ptr);
+    memcpy(ptr, comm_data_.cpu_data(), sizeof(float) * size());
+    comm_data_.set_cpu_data(ptr);
   }
   // else the mem space is shared among all worker and servers
   Msg* ret = nullptr;
@@ -368,7 +378,7 @@ void Param::ParseUpdateMsgs(const vector<Msg*>& msgs) {
       }
     }
   }
-  grad_.set_cpu_data(server_grad);
+  comm_grad_.set_cpu_data(server_grad);
 }
 
 const vector<Msg*> Param::GenUpdateResponseMsgs(vector<Msg*>* msgs,
@@ -386,7 +396,7 @@ const vector<Msg*> Param::GenUpdateResponseMsgs(vector<Msg*>* msgs,
     if (copy) {
       ptr->NextFrame();
       CHECK_EQ(ptr->FrameSize(), sizeof(float) * size());
-      memcpy(ptr->FrameData(), mutable_cpu_data(), ptr->FrameSize());
+      memcpy(ptr->FrameData(), mutable_comm_data(), ptr->FrameSize());
     }
     ret.push_back(ptr);
   }
@@ -426,7 +436,7 @@ void Param::ParseResponseMsg(Msg* msg, int slice_idx) {
   msg->NextFrame();
   if (copy) {
     CHECK_EQ(msg->FrameSize(), slice_size_[slice_idx] * sizeof(float));
-    memcpy(mutable_cpu_data() + slice_offset_[slice_idx],
+    memcpy(mutable_comm_data() + slice_offset_[slice_idx],
         msg->FrameData(), msg->FrameSize());
   }
   // LOG(ERROR)<<"parse response norm "<<data_->asum_data()<<" of "<<id();
