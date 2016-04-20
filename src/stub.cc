@@ -265,8 +265,10 @@ void Stub::HandleGetResponse(ParamEntry* entry, Msg** msg) {
   int sliceid = SliceID((*msg)->trgt_val());
   auto param = entry->shares.at(0);
   if (param->ParseGetResponseMsg(*msg, sliceid-param->slice_start()))
-    for (auto *p : entry->shares)
+    for (auto *p : entry->shares) {
       p->set_version(version);
+      p->comm_to_comp_data();
+    }
   DeleteMsg(msg);
 }
 
@@ -275,8 +277,10 @@ void Stub::HandleUpdateResponse(ParamEntry* entry, Msg** msg) {
   int sliceid = SliceID((*msg)->trgt_val());
   auto param = entry->shares.at(0);
   if (param->ParseUpdateResponseMsg(*msg, sliceid-param->slice_start()))
-    for (auto *p : entry->shares)
+    for (auto *p : entry->shares) {
       p->set_version(version);
+      p->comm_to_comp_data();
+    }
   DeleteMsg(msg);
 }
 }  // namespace singa

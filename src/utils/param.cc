@@ -155,7 +155,9 @@ void Param::Setup(const vector<int>& shape) {
   grad_.Reshape(shape);
   history_.Reshape(shape);
   update_.Reshape(shape);
-  //todo:  init comm_data_ and comm_grad_?
+  comm_data_.Reshape(shape);
+  comm_grad_.Reshape(shape);
+  //init comm_data_ and comm_grad_?
 }
 
 void Param::InitValues() {
@@ -165,7 +167,8 @@ void Param::InitValues() {
 void Param::InitValues(int version) {
   ParamGenerator* gen = ParamGenerator::Create(proto_.init());
   gen->Fill(&comm_data_);
-  //todo: comm_data_ to data_
+  comm_to_comp_data();
+  //comm_data_ to data_
   set_version(version);
 }
 
@@ -210,12 +213,14 @@ void Param::FromProto(const string str) {
   BlobProto blob;
   blob.ParseFromString(str);
   comm_data_.FromProto(blob);
-  //todo generate data_ from comm_data_
+  comm_to_comp_data();
+  //generate data_ from comm_data_
 }
 
 void Param::FromProto(const BlobProto& blob) {
   comm_data_.FromProto(blob);
-  //todo generate data_ from comm_data_
+  comm_to_comp_data();
+  //generate data_ from comm_data_
 }
 
 void Param::ToProto(BlobProto* blob) {
@@ -270,7 +275,8 @@ Msg* Param::GenUpdateMsg(bool copy, int idx) {
   Msg* msg = new Msg();
   msg->set_type(kUpdate);
   msg->AddFormatFrame("i", copy);
-  //todo: from grad_ to comm_ grad_
+  comp_to_comm_grad();
+  //from grad_ to comm_ grad_
   const void* ptr = comm_grad_.cpu_data() + slice_offset_[idx];
   if (copy) {
     msg->AddFrame(ptr, slice_size_[idx]*sizeof(float));
