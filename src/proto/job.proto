@@ -764,6 +764,9 @@ enum Phase {
 enum ParamType {
   // built-in Param
   kParam = 0;
+  kHashed = 1;
+  //kLR = 2;
+  //kCC = 3;
   // user-defined Param
   kUser = 103;
 }

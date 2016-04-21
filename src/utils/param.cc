@@ -448,6 +448,39 @@ void Param::ParseResponseMsg(Msg* msg, int slice_idx) {
   // LOG(ERROR)<<"parse response norm "<<data_->asum_data()<<" of "<<id();
 }
 
+void HashedParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  hashsize_ = data_.count()/2;
+  vector<int> temp;
+  temp.push_back(hashsize_);
+  history_.Reshape(temp);
+  update_.Reshape(temp);
+  comm_data_.Reshape(temp);
+  comm_grad_.Reshape(temp);
+}
+
+void HashedParam:: comm_to_comp_data() {
+  float* comm = comm_data_.mutable_cpu_data();
+  float* comp = data_.mutable_cpu_data();
+  int datasize = size();
+  for(int i = 0; i < datasize; i++) {
+    int signal = std::hash<int>()(i+2) % 2 ? 1 : -1;
+    comp[i] = signal * comm[std::hash<int>()(i) % hashsize_];
+  }
+}
+
+void HashedParam:: comp_to_comm_grad() {
+  float* comm = comm_grad_.mutable_cpu_data();
+  float* comp = grad_.mutable_cpu_data();
+  int datasize = size();
+  for(int i = 0; i < hashsize_; i++) comm[i] = 0;
+  for(int i = 0; i < datasize; i++) {
+    int signal = std::hash<int>()(i+2) % 2 ? 1 : -1;
+    comm[std::hash<int>()(i) % hashsize_] += signal * comp[i];
+  }
+}
+
 /************************ParamEntry***************************/
 ParamEntry::ParamEntry(int total, Param* p) {
   num_total = total;

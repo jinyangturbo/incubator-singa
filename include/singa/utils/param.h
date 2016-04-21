@@ -212,6 +212,8 @@ class Param {
    /**
     * @return num of parameters in this Param obj.
     */
+  inline virtual void comm_to_comp_data() { memcpy(data_.mutable_cpu_data(), comm_data_.mutable_cpu_data(), size() * sizeof(float)); }
+  inline virtual void comp_to_comm_grad() { memcpy(comm_grad_.mutable_cpu_data(), grad_.mutable_cpu_data(), size() * sizeof(float)); }
   inline const std::vector<int>& shape() const { return data_.shape(); }
   inline int size() const { return data_.count(); }
   inline int comm_size() const { return comm_data_.count(); }
@@ -363,6 +365,16 @@ class Param {
   // data, gradient, history gradient of this parameter
   Blob<float> data_, grad_, history_, update_, comm_data_, comm_grad_;
   ParamProto proto_;
+};
+
+class HashedParam : public Param {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+
+ protected:
+ int hashsize_;
 };
 
 /**
