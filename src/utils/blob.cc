@@ -242,6 +242,11 @@ void Blob<Dtype>::ShareData(Blob* other, bool cpu_only) {
     data_ = other->data_;
 }
 
+template <typename Dtype>
+void Blob<Dtype>::ShareDataOffset(Blob* other, int offset) {
+    data_->set_cpu_data(other->mutable_cpu_data() + offset);
+}
+
 /*
 template <typename Dtype>
 void Blob<Dtype>::Swap(Blob& other) {

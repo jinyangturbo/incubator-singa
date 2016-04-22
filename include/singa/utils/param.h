@@ -377,6 +377,18 @@ class HashedParam : public Param {
  int hashsize_;
 };
 
+class LRParam : public Param {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+
+ protected:
+ int rank_;
+ int dim1_,dim2_;
+ //Blob<float> comm_data1_, comm_data2_, comm_grad1_, comm_grad2_;
+};
+
 /**
  * ParamEntry is used for aggregating gradients of Params shared by workers from
  * the same group.

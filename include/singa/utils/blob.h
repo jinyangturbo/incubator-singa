@@ -221,7 +221,7 @@ class Blob {
    * becuase gpu memory cannot be shared among different devices.
    */
   void ShareData(Blob* other, bool cpu_only = true);
-
+  void ShareDataOffset(Blob* other, int offset = 0);
   /*
   void Swap(Blob& other);
   */

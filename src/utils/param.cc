@@ -29,6 +29,7 @@
 #include "singa/utils/factory.h"
 #include "singa/utils/singleton.h"
 #include "singa/utils/common.h"
+#include "singa/utils/math_addr.h"
 
 namespace singa {
 
@@ -452,12 +453,10 @@ void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/2;
-  vector<int> temp;
-  temp.push_back(hashsize_);
-  history_.Reshape(temp);
-  update_.Reshape(temp);
-  comm_data_.Reshape(temp);
-  comm_grad_.Reshape(temp);
+  history_.Reshape(hashsize_);
+  update_.Reshape(hashsize_);
+  comm_data_.Reshape(hashsize_);
+  comm_grad_.Reshape(hashsize_);
 }
 
 void HashedParam:: comm_to_comp_data() {
@@ -480,6 +479,46 @@ void HashedParam:: comp_to_comm_grad() {
     comm[std::hash<int>()(i) % hashsize_] += signal * comp[i];
   }
 }
+
+void LRParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  CHECK_EQ(shape.size(), 2) << "LRParam require 2 matrix params";
+  rank_ = 200;
+  dim1_ = shape[0];
+  dim2_ = shape[1];
+  history_.Reshape(dim1_+ dim2_, rank_);
+  update_.Reshape(dim1_+ dim2_, rank_);
+  comm_data_.Reshape(dim1_+ dim2_, rank_);
+  comm_grad_.Reshape(dim1_+ dim2_, rank_);
+  /*comm_data1_.Reshape(dim1_, rank_);
+  comm_data2_.Reshape(dim2_, rank_);
+  comm_grad1_.Reshape(dim1_, rank_);
+  comm_grad2_.Reshape(dim2_, rank_);
+  comm_data1_.ShareDataOffset(comm_data_);
+  comm_data2_.ShareDataOffset(comm_data_, dim1_*rank_);
+  comm_grad1_.ShareDataOffset(comm_grad_);
+  comm_grad2_.ShareDataOffset(comm_grad_, dim1_*rank_);*/
+}
+
+// comp(m*n) = matrix1(m*k) * matrix2T(k*n)
+void LRParam:: comm_to_comp_data() {
+  float* comm = comm_data_.mutable_cpu_data();
+  float* comp = data_.mutable_cpu_data();
+  float* matrix1 = comm;
+  float* matrix2 = comm + dim1_*rank_;
+  cpu_gemm<float>(matrix1, matrix2, dim1_, dim2_, rank_, 1, 0, false, true, comp);
+}
+
+//matrix2 is VT_grad matrix1 is U, comp is W_grad
+// VT_grad(n*k) = WT_grad(n*m) * U(m*k)
+void LRParam:: comp_to_comm_grad() {
+  float* comp = grad_.mutable_cpu_data();
+  float* matrix1 = comm_data_.mutable_cpu_data() ;
+  float* matrix2 = comm_grad_.mutable_cpu_data() + dim1_*rank_;
+  cpu_gemm<float>(comp, matrix1, dim2_, rank_, dim1_, 1, 0, true, false, matrix2);
+}
+
 
 /************************ParamEntry***************************/
 ParamEntry::ParamEntry(int total, Param* p) {
