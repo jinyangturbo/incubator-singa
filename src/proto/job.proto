@@ -766,7 +766,8 @@ enum ParamType {
   kParam = 0;
   kHashed = 1;
   kLR = 2;
-  //kCC = 3;
+  kCCpure = 3;
+  kCC = 4;
   // user-defined Param
   kUser = 103;
 }

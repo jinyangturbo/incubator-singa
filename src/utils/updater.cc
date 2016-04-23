@@ -144,6 +144,7 @@ void SGDUpdater::Update(int step, Param* param, float grad_scale) {
     grad *= -lr;
     data += grad;
   }
+  param->ConditionCheck();
 }
 
 /***********************Nesterov******************************/
@@ -165,6 +166,7 @@ void NesterovUpdater::Update(int step, Param* param, float grad_scale) {
   history = history * momentum_ + lr * grad;
   tmp = history * (1 + momentum_) - tmp * momentum_;
   data -= tmp;
+  param->ConditionCheck();
 }
 /***********************AdaGrad******************************/
 void AdaGradUpdater::Update(int step, Param* param, float grad_scale) {
@@ -181,6 +183,7 @@ void AdaGradUpdater::Update(int step, Param* param, float grad_scale) {
     grad += data * wd;
   history += F<square>(grad);
   data -= lr * grad / (F<sqrtop>(history, proto_.delta()));
+  param->ConditionCheck();
 }
 
 /***********************RMSProp******************************/
@@ -205,6 +208,7 @@ void RMSPropUpdater::Update(int step, Param* param, float grad_scale) {
     grad += data * wd;
   history = history * rho_ + (1 - rho_) * F<square>(grad);
   data -= lr * grad / F<sqrtop>(history, delta_);
+  param->ConditionCheck();
 }
 /***********************AdaDelta******************************/
 void AdaDeltaUpdater::Init(const UpdaterProto& proto){
@@ -229,6 +233,7 @@ void AdaDeltaUpdater::Update(int step, Param* param, float grad_scale){
   tmp = grad * F<op::sqrtop>(update, delta_) / F<op::sqrtop>(history, delta_);
   update = rho_ * update + (1 - rho_) * F<op::square>(tmp);
   data -= lr * tmp;
+  param->ConditionCheck();
 }
 
 /***********************Adam******************************/
@@ -253,6 +258,7 @@ void AdamUpdater::Update(int step, Param* param, float grad_scale) {
   history = history * beta1_ + (1 - beta1_) * grad;
   update = update * beta2_ + (1 - beta2_) * F<op::square>(grad);
   data -= lr * history / F<op::sqrtop>(update, delta_);
+  param->ConditionCheck();
 }
 
 /***********************AdamMax******************************/
@@ -279,6 +285,7 @@ void AdamMaxUpdater::Update(int step, Param* param, float grad_scale) {
   grad = F<op::abs>(grad);
   update = F<op::max>(update, grad) + delta_;
   data -= lr * history / update;
+  param->ConditionCheck();
 }
 
 }  // namespace singa

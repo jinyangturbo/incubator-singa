@@ -452,7 +452,7 @@ void Param::ParseResponseMsg(Msg* msg, int slice_idx) {
 void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/2;
+  hashsize_ = data_.count()/128;
   history_.Reshape(hashsize_);
   update_.Reshape(hashsize_);
   comm_data_.Reshape(hashsize_);
@@ -463,8 +463,9 @@ void HashedParam:: comm_to_comp_data() {
   float* comm = comm_data_.mutable_cpu_data();
   float* comp = data_.mutable_cpu_data();
   int datasize = size();
-  for(int i = 0; i < datasize; i++) {
+  for (int i = 0; i < datasize; i++) {
     int signal = std::hash<int>()(i+2) % 2 ? 1 : -1;
+    //int signal = 1;
     comp[i] = signal * comm[std::hash<int>()(i) % hashsize_];
   }
 }
@@ -473,9 +474,10 @@ void HashedParam:: comp_to_comm_grad() {
   float* comm = comm_grad_.mutable_cpu_data();
   float* comp = grad_.mutable_cpu_data();
   int datasize = size();
-  for(int i = 0; i < hashsize_; i++) comm[i] = 0;
-  for(int i = 0; i < datasize; i++) {
+  for (int i = 0; i < hashsize_; i++) comm[i] = 0;
+  for (int i = 0; i < datasize; i++) {
     int signal = std::hash<int>()(i+2) % 2 ? 1 : -1;
+    //int signal = 1;
     comm[std::hash<int>()(i) % hashsize_] += signal * comp[i];
   }
 }
@@ -484,21 +486,13 @@ void LRParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   CHECK_EQ(shape.size(), 2) << "LRParam require 2 matrix params";
-  rank_ = 200;
+  rank_ = 50;
   dim1_ = shape[0];
   dim2_ = shape[1];
   history_.Reshape(dim1_+ dim2_, rank_);
   update_.Reshape(dim1_+ dim2_, rank_);
   comm_data_.Reshape(dim1_+ dim2_, rank_);
   comm_grad_.Reshape(dim1_+ dim2_, rank_);
-  /*comm_data1_.Reshape(dim1_, rank_);
-  comm_data2_.Reshape(dim2_, rank_);
-  comm_grad1_.Reshape(dim1_, rank_);
-  comm_grad2_.Reshape(dim2_, rank_);
-  comm_data1_.ShareDataOffset(comm_data_);
-  comm_data2_.ShareDataOffset(comm_data_, dim1_*rank_);
-  comm_grad1_.ShareDataOffset(comm_grad_);
-  comm_grad2_.ShareDataOffset(comm_grad_, dim1_*rank_);*/
 }
 
 // comp(m*n) = matrix1(m*k) * matrix2T(k*n)
@@ -519,6 +513,107 @@ void LRParam:: comp_to_comm_grad() {
   cpu_gemm<float>(comp, matrix1, dim2_, rank_, dim1_, 1, 0, true, false, matrix2);
 }
 
+void CCParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  hashsize_ = data_.count()/128;
+  fan_ = 4;
+  indicatorsize_ = hashsize_/2;
+  history_.Reshape(hashsize_+indicatorsize_);
+  update_.Reshape(hashsize_+indicatorsize_);
+  comm_data_.Reshape(hashsize_+indicatorsize_);
+  comm_grad_.Reshape(hashsize_+indicatorsize_);
+}
+
+void CCParam:: comm_to_comp_data() {
+  float* hashdata = comm_data_.mutable_cpu_data();
+  float* indicator = hashdata + hashsize_;
+  float* comp = data_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < datasize; i++) {
+    comp[i] = 0;
+    for (int j = 0; j < fan_; j++) {
+      int tmp = hash(fan_+j, i)%(2*indicatorsize_);
+      comp[i] += (tmp % 2 ? 1 : -1) *  indicator[tmp/2]* 20 * hashdata[hash(j,i)%hashsize_];
+    }
+  }
+}
+
+void CCParam:: comp_to_comm_grad() {
+  float* hashdata = comm_data_.mutable_cpu_data();
+  float* indicator = hashdata + hashsize_;
+  float* hashdata_grad = comm_grad_.mutable_cpu_data();
+  float* indicator_grad = hashdata_grad + hashsize_;
+  float* comp_grad = grad_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < hashsize_; i++) hashdata_grad[i] = 0;
+  for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] = 0;
+  for (int i = 0; i < datasize; i++) {
+    for (int j = 0; j < fan_; j++) {
+      int tmp = hash(fan_+j, i)%(2*indicatorsize_);
+      hashdata_grad[hash(j,i)%hashsize_] += (tmp % 2 ? 1 : -1) * indicator[tmp/2] * 20 * comp_grad[i];
+      indicator_grad[tmp/2] += (tmp % 2 ? 1 : -1) * hashdata[hash(j,i)%hashsize_] * 0.1 *  comp_grad[i];
+    }
+  }
+}
+
+void CCParam::ConditionCheck() {
+  float* indicator = comm_data_.mutable_cpu_data() + hashsize_;
+  for (int i = 0; i < indicatorsize_; i++) {
+    if(indicator[i] > 0.05) indicator[i] = 0.05;
+    if(indicator[i] < -0.05) indicator[i] = -0.05;
+  }
+}
+
+void CCpureParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  hashsize_ = data_.count()/8;
+  indicatorsize_ = hashsize_;
+  history_.Reshape(hashsize_+indicatorsize_);
+  update_.Reshape(hashsize_+indicatorsize_);
+  comm_data_.Reshape(hashsize_+indicatorsize_);
+  comm_grad_.Reshape(hashsize_+indicatorsize_);
+}
+
+void CCpureParam:: comm_to_comp_data() {
+  float* hashdata = comm_data_.mutable_cpu_data();
+  float* indicator = hashdata + hashsize_;
+  float* comp = data_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < datasize; i++) {
+    float w = indicator[hash(0, i)%indicatorsize_];
+    comp[i] = (w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_];
+  }
+}
+
+void CCpureParam:: comp_to_comm_grad() {
+  float* hashdata = comm_data_.mutable_cpu_data();
+  float* indicator = hashdata + hashsize_;
+  float* hashdata_grad = comm_grad_.mutable_cpu_data();
+  float* indicator_grad = hashdata_grad + hashsize_;
+  float* comp_grad = grad_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < hashsize_; i++) hashdata_grad[i] = 0;
+  for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] = 0;
+  for (int i = 0; i < datasize; i++) {
+    float w = indicator[hash(0, i)%indicatorsize_];
+    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i];
+    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
+    indicator_grad[hash(0, i)%indicatorsize_] += (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i];
+    //indicator_grad[hash(0, i)%indicatorsize_] += (hashdata[hash(1,i)%hashsize_] ) / 2 * comp_grad[i];
+    //hashdata_grad[hash(1,i)%hashsize_] += (w+1) * comp_grad[i];
+    //indicator_grad[hash(0, i)%indicatorsize_] += hashdata[hash(1,i)%hashsize_]  * comp_grad[i];
+  }
+}
+
+void CCpureParam::ConditionCheck() {
+  float* indicator = comm_data_.mutable_cpu_data() + hashsize_;
+  for (int i = 0; i < indicatorsize_; i++) {
+    if(indicator[i] > 0.5) indicator[i] = 0.5;
+    if(indicator[i] < -0.5) indicator[i] = -0.5;
+  }
+}
 
 /************************ParamEntry***************************/
 ParamEntry::ParamEntry(int total, Param* p) {

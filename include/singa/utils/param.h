@@ -227,6 +227,7 @@ class Param {
   inline float* mutable_comm_grad() { return comm_grad_.mutable_cpu_data(); }
   inline float* mutable_cpu_history() { return history_.mutable_cpu_data(); }
   inline float* mutable_cpu_update() { return update_.mutable_cpu_data(); }
+  virtual void ConditionCheck() {}
   /**
    * @return slice start ID
    */
@@ -387,6 +388,38 @@ class LRParam : public Param {
  int rank_;
  int dim1_,dim2_;
  //Blob<float> comm_data1_, comm_data2_, comm_grad1_, comm_grad2_;
+};
+
+class CCpureParam : public Param {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+ virtual void ConditionCheck() override;
+
+ protected:
+ inline int hash(int i, int key) {
+   int tmp1 = std::hash<int>()(i);
+   int tmp2 = std::hash<int>()(key);
+   return std::hash<int>()(tmp1+tmp2);
+ }
+ int hashsize_, indicatorsize_;
+};
+
+class CCParam : public Param {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+ virtual void ConditionCheck() override;
+
+ protected:
+ inline int hash(int i, int key) {
+   int tmp1 = std::hash<int>()(i);
+   int tmp2 = std::hash<int>()(key);
+   return std::hash<int>()(tmp1+tmp2);
+ }
+ int hashsize_, fan_, indicatorsize_;
 };
 
 /**

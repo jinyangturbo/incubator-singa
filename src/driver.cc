@@ -160,6 +160,8 @@ void Driver::Init(int argc, char **argv) {
   RegisterParam<Param>(0);
   RegisterParam<HashedParam>(1);
   RegisterParam<LRParam>(2);
+  RegisterParam<CCpureParam>(3);
+  RegisterParam<CCParam>(4);
 
   // register param init methods
   RegisterParamGenerator<ParamGenerator>(kConstant);
