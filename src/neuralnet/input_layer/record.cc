@@ -20,6 +20,8 @@
 *************************************************************/
 
 #include "singa/neuralnet/input_layer.h"
+#include "singa/utils/singa_op.h"
+#include "singa/utils/math_blob.h"
 namespace singa {
 
 using std::string;
@@ -69,5 +71,16 @@ bool RecordInputLayer::Parse(int k, int flag, const string& key,
   }
   return true;
 }
+
+void RecordDropoutInputLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
+    SingleLabelRecordLayer::ComputeFeature(flag, srclayers);
+    Blob<float> rand(data_.count());
+    Blob<float> mask(data_.count());
+    float p = 0.8;
+    SampleUniform(0.0f, 1.0f, &rand);
+    Map<op::Threshold<float>, float>(p, rand, &mask);
+    Scale(1.0f / p, &mask);
+    Mult(data_, mask, &data_);
+  }
 
 }  // namespace singa

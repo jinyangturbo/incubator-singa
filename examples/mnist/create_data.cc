@@ -29,6 +29,7 @@
 //    http://yann.lecun.com/exdb/mnist/
 
 #include <glog/logging.h>
+#include <stdlib.h>
 #include <cstdint>
 #include <iostream>
 
@@ -88,6 +89,15 @@ void create_data(const char* image_filename, const char* label_filename,
   const int kMaxKeyLength = 10;
   char key[kMaxKeyLength];
   string value;
+  std::vector<string> valuelist;
+  std::vector<int> shufflekey;
+  for(int i = 0; i < num_items; i++) {
+    shufflekey.push_back(i);
+    int index = rand()%(i+1);
+    int temp = shufflekey[index];
+    shufflekey[index] = shufflekey[i];
+    shufflekey[i] = temp;
+  }
 
   singa::RecordProto image;
   image.add_shape(rows);
@@ -99,9 +109,13 @@ void create_data(const char* image_filename, const char* label_filename,
     label_file.read(&label, 1);
     image.set_pixel(pixels, rows*cols);
     image.set_label(label);
-    snprintf(key, kMaxKeyLength, "%08d", item_id);
     image.SerializeToString(&value);
-    store->Write(string(key), value);
+    valuelist.push_back(value);
+  }
+  for (int item_id = 0; item_id < num_items; ++item_id) {
+    snprintf(key, kMaxKeyLength, "%08d", shufflekey[item_id]);
+    valuelist.push_back(value);
+    store->Write(string(key), valuelist[shufflekey[item_id]]);
   }
   delete pixels;
   store->Flush();

@@ -138,6 +138,15 @@ class RecordInputLayer : public SingleLabelRecordLayer {
 };
 
 /**
+ * Specific layer that parses the value string loaded by Store into a
+ * RecordProto.
+ */
+class RecordDropoutInputLayer : public RecordInputLayer {
+ public:
+  void ComputeFeature(int flag, const vector<Layer*>& srclayers) override;
+};
+
+/**
  * Do preprocessing for images, including cropping, mirroring, resizing.
  */
 class ImagePreprocessLayer : public InputLayer {
