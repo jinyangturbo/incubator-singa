@@ -32,7 +32,8 @@ void DropoutLayer::Setup(const LayerProto& conf,
     const vector<Layer*>& srclayers) {
   Layer::Setup(conf, srclayers);
   data_.ReshapeLike(srclayers[0]->data(this));
-  grad_.ReshapeLike(*srclayers[0]->mutable_grad(this));
+  if (srclayers[0]->mutable_grad(this) != nullptr)
+    grad_.ReshapeLike(*srclayers[0]->mutable_grad(this));
   mask_.Reshape(srclayers[0]->data(this).shape());
   pdrop_ = conf.dropout_conf().dropout_ratio();
 }
@@ -41,6 +42,7 @@ void DropoutLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
   // check training
   if ((flag & kTrain) != kTrain) {
     data_.CopyFrom(srclayers[0]->data(this));
+    // Map<op::Mult<float>, float>(1 - pdrop_, srclayers[0]->data(this), &data_);
     return;
   }
 
@@ -54,7 +56,8 @@ void DropoutLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
 }
 
 void DropoutLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers)  {
-  Mult(grad_, mask_, srclayers[0]->mutable_grad(this));
+  if (grad_.count())
+    Mult(grad_, mask_, srclayers[0]->mutable_grad(this));
   // no need to mult scale as mask is scaled already.
 }
 

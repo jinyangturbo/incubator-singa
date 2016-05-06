@@ -42,6 +42,8 @@ void SigmoidLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
 }
 
 void SigmoidLayer::ComputeGradient(int flag, const vector<Layer*>& srclayers) {
+  if (grad_.count() == 0)
+    return;
   auto data = Tensor1(&data_);
   auto grad = Tensor1(&grad_);
   auto gsrc = Tensor1(srclayers[0]->mutable_grad(this));

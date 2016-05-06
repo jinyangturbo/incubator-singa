@@ -77,7 +77,8 @@ void InnerProductLayer::ComputeGradient(int flag,
     GEMM(1.0f, beta, grad_.T(), srclayers[0]->data(this),
         weight_->mutable_grad());
 
-  if (srclayers[0]->mutable_grad(this) != nullptr) {
+  if (srclayers[0]->mutable_grad(this) != nullptr &&
+      srclayers[0]->mutable_grad(this)->count()) {
     if (transpose_)
       MMDot(grad_, weight_->data().T(), srclayers[0]->mutable_grad(this));
     else
