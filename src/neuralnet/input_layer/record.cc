@@ -72,7 +72,7 @@ bool RecordInputLayer::Parse(int k, int flag, const string& key,
   return true;
 }
 
-void RecordDropoutInputLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers) {
+void RecordDropoutInputLayer::ComputeFeature(int flag, const vector<Layer*>& srclayers)  {
     SingleLabelRecordLayer::ComputeFeature(flag, srclayers);
     Blob<float> rand(data_.count());
     Blob<float> mask(data_.count());

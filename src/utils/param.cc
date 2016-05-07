@@ -66,10 +66,14 @@ void GaussianGen::Fill(Blob<float>* blob) {
 
 void GaussianSqrtFanInGen::Fill(Blob<float>* blob) {
   // only valid for param matrix with num of cols as fan in
-  CHECK_EQ(blob->shape().size(), 2);
+  int fan_in = 400;
+  if(blob->shape().size() == 2) {
+    CHECK_EQ(blob->shape().size(), 2);
+    fan_in = blob->shape().at(1);
+    }
   Tensor<cpu, 1> data(blob->mutable_cpu_data(), Shape1(blob->count()));
   GaussianGen::Fill(blob);
-  data /= sqrt(blob->shape().at(1));
+  data /= sqrt(fan_in);
 }
 
 void UniformGen::Fill(Blob<float>* blob) {
@@ -452,7 +456,7 @@ void Param::ParseResponseMsg(Msg* msg, int slice_idx) {
 void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/128;
+  hashsize_ = data_.count()/64;
   history_.Reshape(hashsize_);
   update_.Reshape(hashsize_);
   comm_data_.Reshape(hashsize_);
@@ -516,9 +520,9 @@ void LRParam:: comp_to_comm_grad() {
 void CCParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/128;
+  hashsize_ = data_.count()/64;
   fan_ = 4;
-  indicatorsize_ = hashsize_/2;
+  indicatorsize_ = hashsize_;
   history_.Reshape(hashsize_+indicatorsize_);
   update_.Reshape(hashsize_+indicatorsize_);
   comm_data_.Reshape(hashsize_+indicatorsize_);
@@ -568,7 +572,7 @@ void CCParam::ConditionCheck() {
 void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/8;
+  hashsize_ = data_.count()/64;
   indicatorsize_ = hashsize_;
   history_.Reshape(hashsize_+indicatorsize_);
   update_.Reshape(hashsize_+indicatorsize_);
@@ -584,6 +588,8 @@ void CCpureParam:: comm_to_comp_data() {
   for (int i = 0; i < datasize; i++) {
     float w = indicator[hash(0, i)%indicatorsize_];
     comp[i] = (w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_];
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp[i] *= tmp;
   }
 }
 
@@ -597,6 +603,8 @@ void CCpureParam:: comp_to_comm_grad() {
   for (int i = 0; i < hashsize_; i++) hashdata_grad[i] = 0;
   for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] = 0;
   for (int i = 0; i < datasize; i++) {
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp_grad[i] *= tmp;
     float w = indicator[hash(0, i)%indicatorsize_];
     hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i];
     hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
