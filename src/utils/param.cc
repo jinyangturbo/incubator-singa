@@ -456,7 +456,7 @@ void Param::ParseResponseMsg(Msg* msg, int slice_idx) {
 void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/64;
+  hashsize_ = data_.count()/proto_.compress_ratio();
   history_.Reshape(hashsize_);
   update_.Reshape(hashsize_);
   comm_data_.Reshape(hashsize_);
@@ -490,7 +490,8 @@ void LRParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   CHECK_EQ(shape.size(), 2) << "LRParam require 2 matrix params";
-  rank_ = 50;
+  rank_ = dim1_ /proto_.compress_ratio();
+  //one of the matrix is fixed and exclued from para size
   dim1_ = shape[0];
   dim2_ = shape[1];
   history_.Reshape(dim1_+ dim2_, rank_);
@@ -520,7 +521,7 @@ void LRParam:: comp_to_comm_grad() {
 void CCParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/64;
+  hashsize_ = data_.count()/proto_.compress_ratio();
   fan_ = 4;
   indicatorsize_ = hashsize_;
   history_.Reshape(hashsize_+indicatorsize_);
@@ -572,7 +573,7 @@ void CCParam::ConditionCheck() {
 void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
-  hashsize_ = data_.count()/64;
+  hashsize_ = data_.count()/proto_.compress_ratio();
   indicatorsize_ = hashsize_;
   history_.Reshape(hashsize_+indicatorsize_);
   update_.Reshape(hashsize_+indicatorsize_);

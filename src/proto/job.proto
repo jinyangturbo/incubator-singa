@@ -272,6 +272,7 @@ message ParamProto {
   optional string name =  1 [default = ""];
   // for built-in Param
   optional ParamType type = 3 [default = kParam];
+  optional float compress_ratio = 10 [default = 1];
   // for user-defined Param
   optional string user_type = 4;
 
