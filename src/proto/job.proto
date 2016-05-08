@@ -770,6 +770,7 @@ enum ParamType {
   kLR = 2;
   kCCpure = 3;
   kCC = 4;
+  kMultiHash = 5;
   // user-defined Param
   kUser = 103;
 }

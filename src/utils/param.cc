@@ -610,9 +610,6 @@ void CCpureParam:: comp_to_comm_grad() {
     hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i];
     hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
     indicator_grad[hash(0, i)%indicatorsize_] += (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i];
-    //indicator_grad[hash(0, i)%indicatorsize_] += (hashdata[hash(1,i)%hashsize_] ) / 2 * comp_grad[i];
-    //hashdata_grad[hash(1,i)%hashsize_] += (w+1) * comp_grad[i];
-    //indicator_grad[hash(0, i)%indicatorsize_] += hashdata[hash(1,i)%hashsize_]  * comp_grad[i];
   }
 }
 
@@ -621,6 +618,40 @@ void CCpureParam::ConditionCheck() {
   for (int i = 0; i < indicatorsize_; i++) {
     if(indicator[i] > 0.5) indicator[i] = 0.5;
     if(indicator[i] < -0.5) indicator[i] = -0.5;
+  }
+}
+
+void MultiHashParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  hashsize_ = data_.count()/proto_.compress_ratio();
+  history_.Reshape(hashsize_);
+  update_.Reshape(hashsize_);
+  comm_data_.Reshape(hashsize_);
+  comm_grad_.Reshape(hashsize_);
+}
+
+void MultiHashParam:: comm_to_comp_data() {
+  float* hashdata = comm_data_.mutable_cpu_data();
+  float* comp = data_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < datasize; i++) {
+    comp[i] = 0.5 * hashdata[hash(1,i)%hashsize_] + 0.5 * hashdata[hash(2,i)%hashsize_];
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp[i] *= tmp;
+  }
+}
+
+void MultiHashParam:: comp_to_comm_grad() {
+  float* hashdata_grad = comm_grad_.mutable_cpu_data();
+  float* comp_grad = grad_.mutable_cpu_data();
+  int datasize = size();
+  for (int i = 0; i < hashsize_; i++) hashdata_grad[i] = 0;
+  for (int i = 0; i < datasize; i++) {
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp_grad[i] *= tmp;
+    hashdata_grad[hash(1,i)%hashsize_] += 0.5 * comp_grad[i];
+    hashdata_grad[hash(2,i)%hashsize_] += 0.5 * comp_grad[i];
   }
 }
 
