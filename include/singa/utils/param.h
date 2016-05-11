@@ -406,6 +406,21 @@ class CCpureParam : public Param {
  int hashsize_, indicatorsize_;
 };
 
+class MultiHashParam : public Param {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+
+ protected:
+ inline int hash(int i, int key) {
+   int tmp1 = std::hash<int>()(i);
+   int tmp2 = std::hash<int>()(key);
+   return std::hash<int>()(tmp1+tmp2);
+ }
+ int hashsize_;
+};
+
 class CCParam : public Param {
  public:
  virtual void comm_to_comp_data() override;
