@@ -559,7 +559,6 @@ void CCParam:: comp_to_comm_grad() {
     comp_grad[i] *= tmp;
     float w = indicator[hash(0, i)%indicatorsize_];
     float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
-    //float sparse = 1.0;
     hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse;
     hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i] * sparse;
     indicator_grad[hash(0, i)%indicatorsize_] += 5 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i] * sparse;
@@ -570,8 +569,8 @@ void CCParam:: comp_to_comm_grad() {
 void CCParam::ConditionCheck() {
   float* indicator = comm_data_.mutable_cpu_data() + hashsize_;
   for (int i = 0; i < indicatorsize_; i++) {
-    if(indicator[i] > 0.05) indicator[i] = 0.05;
-    if(indicator[i] < -0.05) indicator[i] = -0.05;
+    if(indicator[i] > 0.5) indicator[i] = 0.5;
+    if(indicator[i] < -0.5) indicator[i] = -0.5;
   }
 }
 
@@ -597,8 +596,6 @@ void CCpureParam:: comm_to_comp_data() {
     comp[i] = (w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_];
     int tmp = hash(3, i)%2 ? 1 : -1;
     comp[i] *= tmp;
-    //float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
-    //comp[i] *= sparse;
   }
 }
 
@@ -615,12 +612,9 @@ void CCpureParam:: comp_to_comm_grad() {
     int tmp = hash(3, i)%2 ? 1 : -1;
     comp_grad[i] *= tmp;
     float w = indicator[hash(0, i)%indicatorsize_];
-    //float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
-    float sparse = 1.0;
-    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse;
-    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i] * sparse;
-    indicator_grad[hash(0, i)%indicatorsize_] += 2 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i] * sparse;
-    //indicator_grad[hash(4, i)%indicatorsize_] += 5 * comp_grad[i] * ((w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_]);
+    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i];
+    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
+    indicator_grad[hash(0, i)%indicatorsize_] += 2 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i];
   }
 }
 
