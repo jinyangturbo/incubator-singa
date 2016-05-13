@@ -522,8 +522,8 @@ void CCParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
-  fan_ = 4;
-  indicatorsize_ = hashsize_;
+  indicatorsize_ = 4 * hashsize_;
+  //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
   update_.Reshape(hashsize_+indicatorsize_);
   comm_data_.Reshape(hashsize_+indicatorsize_);
@@ -536,11 +536,12 @@ void CCParam:: comm_to_comp_data() {
   float* comp = data_.mutable_cpu_data();
   int datasize = size();
   for (int i = 0; i < datasize; i++) {
-    comp[i] = 0;
-    for (int j = 0; j < fan_; j++) {
-      int tmp = hash(fan_+j, i)%(2*indicatorsize_);
-      comp[i] += (tmp % 2 ? 1 : -1) *  indicator[tmp/2]* 20 * hashdata[hash(j,i)%hashsize_];
-    }
+    float w = indicator[hash(0, i)%indicatorsize_];
+    comp[i] = (w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_];
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp[i] *= tmp;
+    float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
+    comp[i] *= sparse;
   }
 }
 
@@ -554,12 +555,16 @@ void CCParam:: comp_to_comm_grad() {
   for (int i = 0; i < hashsize_; i++) hashdata_grad[i] = 0;
   for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] = 0;
   for (int i = 0; i < datasize; i++) {
-    for (int j = 0; j < fan_; j++) {
-      int tmp = hash(fan_+j, i)%(2*indicatorsize_);
-      hashdata_grad[hash(j,i)%hashsize_] += (tmp % 2 ? 1 : -1) * indicator[tmp/2] * 20 * comp_grad[i];
-      indicator_grad[tmp/2] += (tmp % 2 ? 1 : -1) * hashdata[hash(j,i)%hashsize_] * 0.1 *  comp_grad[i];
+    int tmp = hash(3, i)%2 ? 1 : -1;
+    comp_grad[i] *= tmp;
+    float w = indicator[hash(0, i)%indicatorsize_];
+    float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
+    //float sparse = 1.0;
+    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse;
+    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i] * sparse;
+    indicator_grad[hash(0, i)%indicatorsize_] += 5 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i] * sparse;
+    indicator_grad[hash(4, i)%indicatorsize_] += 5 * comp_grad[i] * ((w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_]);
     }
-  }
 }
 
 void CCParam::ConditionCheck() {
@@ -574,7 +579,8 @@ void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
-  indicatorsize_ = hashsize_;
+  indicatorsize_ = 4 * hashsize_;
+  //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
   update_.Reshape(hashsize_+indicatorsize_);
   comm_data_.Reshape(hashsize_+indicatorsize_);
@@ -591,6 +597,8 @@ void CCpureParam:: comm_to_comp_data() {
     comp[i] = (w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_];
     int tmp = hash(3, i)%2 ? 1 : -1;
     comp[i] *= tmp;
+    //float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
+    //comp[i] *= sparse;
   }
 }
 
@@ -607,9 +615,12 @@ void CCpureParam:: comp_to_comm_grad() {
     int tmp = hash(3, i)%2 ? 1 : -1;
     comp_grad[i] *= tmp;
     float w = indicator[hash(0, i)%indicatorsize_];
-    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i];
-    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
-    indicator_grad[hash(0, i)%indicatorsize_] += (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i];
+    //float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
+    float sparse = 1.0;
+    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse;
+    hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i] * sparse;
+    indicator_grad[hash(0, i)%indicatorsize_] += 2 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i] * sparse;
+    //indicator_grad[hash(4, i)%indicatorsize_] += 5 * comp_grad[i] * ((w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_]);
   }
 }
 

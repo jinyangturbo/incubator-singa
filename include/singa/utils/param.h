@@ -399,7 +399,7 @@ class CCpureParam : public Param {
 
  protected:
  inline int hash(int i, int key) {
-   return std::hash<int>()(key<<4+ i +i<<8);
+   return std::hash<int>()((key<<4) + i + (i<<8) );
  }
  int hashsize_, indicatorsize_;
 };
@@ -412,7 +412,7 @@ class MultiHashParam : public Param {
 
  protected:
  inline int hash(int i, int key) {
-   return std::hash<int>()(key<<4+ i +i<<8);
+   return std::hash<int>()((key<<4) + i + (i<<8) );
  }
  int hashsize_;
 };
@@ -426,7 +426,7 @@ class CCParam : public Param {
 
  protected:
  inline int hash(int i, int key) {
-   return std::hash<int>()(key<<4 + i + i<<8 );
+   return std::hash<int>()((key<<4) + i + (i<<8) );
  }
  int hashsize_, fan_, indicatorsize_;
 };
