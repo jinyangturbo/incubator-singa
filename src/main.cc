@@ -65,6 +65,7 @@ int main(int argc, char **argv) {
 
   // get the job conf, and custmize it if need
   singa::JobProto jobConf = driver.job_conf();
+  LOG(INFO) << jobConf.DebugString();
 
   if (singa::ArgPos(argc, argv, "-test") != -1) {
     driver.Test(jobConf);

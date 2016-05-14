@@ -75,8 +75,8 @@ void PoolingLayer::Setup(const LayerProto& conf,
       (height_ + 2 * pad_y_- kernel_y_) / stride_y_) + 1;
   pooled_width_ = static_cast<int>(
       (width_ + 2* pad_x_ - kernel_x_) / stride_x_) + 1;
-  data_.Reshape(vector<int>{batchsize_, channels_, pooled_height_,
-                            pooled_width_});
+  data_.Reshape(vector<int>{batchsize_, channels_, pooled_height_, pooled_width_}) ;
+LOG(ERROR) << batchsize_ << " " << channels_ << " " << pooled_height_ << " " << pooled_width_;
   grad_.ReshapeLike(data_);
 }
 
