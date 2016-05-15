@@ -457,6 +457,7 @@ void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
+  ratio_ = sqrt(1/proto_.compress_ratio());
   history_.Reshape(hashsize_);
   update_.Reshape(hashsize_);
   comm_data_.Reshape(hashsize_);
@@ -484,6 +485,7 @@ void HashedParam:: comp_to_comm_grad() {
     //int signal = 1;
     comm[std::hash<int>()(i) % hashsize_] += signal * comp[i];
   }
+  for (int i = 0; i < hashsize_; i++) comp[i] *= ratio_;
 }
 
 void LRParam:: Setup(const vector<int>& shape) {
@@ -522,6 +524,7 @@ void CCParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
+  ratio_ = sqrt(1/proto_.compress_ratio());
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
@@ -559,11 +562,13 @@ void CCParam:: comp_to_comm_grad() {
     comp_grad[i] *= tmp;
     float w = indicator[hash(0, i)%indicatorsize_];
     float sparse = indicator[hash(4, i)%indicatorsize_] +0.7;
-    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse;
+    hashdata_grad[hash(1,i)%hashsize_] += (w+0.5) * comp_grad[i] * sparse ;
     hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i] * sparse;
     indicator_grad[hash(0, i)%indicatorsize_] += 5 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i] * sparse;
     indicator_grad[hash(4, i)%indicatorsize_] += 5 * comp_grad[i] * ((w+0.5) * hashdata[hash(1,i)%hashsize_] + (0.5-w) * hashdata[hash(2,i)%hashsize_]);
     }
+    for (int i = 0; i < hashsize_; i++) hashdata_grad[i] *= ratio_;
+    for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] *= ratio_;
 }
 
 void CCParam::ConditionCheck() {
@@ -580,6 +585,7 @@ void CCconvParam:: Setup(const vector<int>& shape) {
   //some conv layer has very few paramters,  i.e. 2K , cannot be compressed
   //leave a small constant 2K storage at least
   hashsize_ = data_.count()/proto_.compress_ratio() + 2000;
+  ratio_ = sqrt(1/proto_.compress_ratio()) +0.1;
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
@@ -604,6 +610,7 @@ void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
+  ratio_ = sqrt(1/proto_.compress_ratio());
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
@@ -642,6 +649,8 @@ void CCpureParam:: comp_to_comm_grad() {
     hashdata_grad[hash(2,i)%hashsize_] += (0.5-w) * comp_grad[i];
     indicator_grad[hash(0, i)%indicatorsize_] += 2 * (hashdata[hash(1,i)%hashsize_] - hashdata[hash(2,i)%hashsize_]) * comp_grad[i];
   }
+  for (int i = 0; i < hashsize_; i++) hashdata_grad[i] *= ratio_;
+  for (int i = 0; i < indicatorsize_; i++) indicator_grad[i] *= ratio_;
 }
 
 void CCpureParam::ConditionCheck() {

@@ -376,6 +376,7 @@ class HashedParam : public Param {
 
  protected:
  int hashsize_;
+ float ratio_;
 };
 
 class LRParam : public Param {
@@ -387,6 +388,7 @@ class LRParam : public Param {
  protected:
  int rank_;
  int dim1_,dim2_;
+ float ratio_;
  //Blob<float> comm_data1_, comm_data2_, comm_grad1_, comm_grad2_;
 };
 
@@ -402,6 +404,7 @@ class CCpureParam : public Param {
    return std::hash<int>()((key<<4) + i + (i<<8) );
  }
  int hashsize_, indicatorsize_;
+ float ratio_;
 };
 
 class MultiHashParam : public Param {
@@ -415,6 +418,7 @@ class MultiHashParam : public Param {
    return std::hash<int>()((key<<4) + i + (i<<8) );
  }
  int hashsize_;
+ float ratio_;
 };
 
 class CCParam : public Param {
@@ -428,7 +432,8 @@ class CCParam : public Param {
  inline int hash(int i, int key) {
    return std::hash<int>()((key<<4) + i + (i<<8) );
  }
- int hashsize_, fan_, indicatorsize_;
+ int hashsize_, indicatorsize_;
+ float ratio_;
 };
 
 class CCconvParam : public CCParam {
