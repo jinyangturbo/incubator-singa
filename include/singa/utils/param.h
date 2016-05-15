@@ -431,6 +431,14 @@ class CCParam : public Param {
  int hashsize_, fan_, indicatorsize_;
 };
 
+class CCconvParam : public CCParam {
+ public:
+ virtual void comm_to_comp_data() override;
+ virtual void comp_to_comm_grad() override;
+ virtual void Setup(const vector<int>& shape) override;
+};
+
+
 /**
  * ParamEntry is used for aggregating gradients of Params shared by workers from
  * the same group.

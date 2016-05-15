@@ -574,6 +574,32 @@ void CCParam::ConditionCheck() {
   }
 }
 
+void CCconvParam:: Setup(const vector<int>& shape) {
+  data_.Reshape(shape);
+  grad_.Reshape(shape);
+  //some conv layer has very few paramters,  i.e. 2K , cannot be compressed
+  //leave a small constant 2K storage at least
+  hashsize_ = data_.count()/proto_.compress_ratio() + 2000;
+  indicatorsize_ = 4 * hashsize_;
+  //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
+  history_.Reshape(hashsize_+indicatorsize_);
+  update_.Reshape(hashsize_+indicatorsize_);
+  comm_data_.Reshape(hashsize_+indicatorsize_);
+  comm_grad_.Reshape(hashsize_+indicatorsize_);
+}
+
+void CCconvParam:: comm_to_comp_data() {
+  CCParam::comm_to_comp_data();
+  //to implement DCT or other transformation
+  //ECK_EQ(data_.shape().size(), 2);
+  //CHECK_EQ(data_.shape()[1]%25, 0);
+}
+
+void CCconvParam:: comp_to_comm_grad() {
+  CCParam::comp_to_comm_grad();
+  //to implement DCT or other transformation
+}
+
 void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);

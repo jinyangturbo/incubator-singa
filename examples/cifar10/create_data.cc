@@ -21,12 +21,12 @@
 
 
 /**
- * Create training and test DataShard for CIFAR dataset. 
- * It is adapted from convert_cifar_data from Caffe. 
- *    create_shard.bin <input> <output_folder> 
- * 
+ * Create training and test DataShard for CIFAR dataset.
+ * It is adapted from convert_cifar_data from Caffe.
+ *    create_shard.bin <input> <output_folder>
+ *
  * Read from JobConf object the option to use KVfile, HDFS or other (1st layer
- * store_conf object). 
+ * store_conf object).
  * To load to HDFS, specify "hdfs://namenode/examples" as the output folder
  */
 
@@ -58,7 +58,9 @@ void read_image(std::ifstream* file, int* label, char* buffer) {
 void create_data(const string& input_folder, const string& output_folder) {
   int label;
   char str_buffer[kCIFARImageNBytes];
+  std::vector<string> str_bufferlist;
   string rec_buf;
+  std::vector<string> rec_buflist;
   singa::RecordProto image;
   image.add_shape(3);
   image.add_shape(kCIFARSize);
@@ -81,18 +83,30 @@ void create_data(const string& input_folder, const string& output_folder) {
     std::ifstream data_file((input_folder + str_buffer).c_str(),
         std::ios::in | std::ios::binary);
     CHECK(data_file.is_open()) << "Unable to open train file #" << fileid + 1;
+    std::vector<int> shufflekey;
+    for(int i = 0; i < kCIFARBatchSize; i++) {
+      shufflekey.push_back(i);
+      int index = rand()%(i+1);
+      int temp = shufflekey[index];
+      shufflekey[index] = shufflekey[i];
+      shufflekey[i] = temp;
+    }
     for (int itemid = 0; itemid < kCIFARBatchSize; ++itemid) {
       read_image(&data_file, &label, str_buffer);
       image.set_label(label);
       image.set_pixel(str_buffer, kCIFARImageNBytes);
       image.SerializeToString(&rec_buf);
       int length = snprintf(str_buffer, kCIFARImageNBytes, "%05d", count);
-      CHECK(store->Write(string(str_buffer, length), rec_buf));
-
+      str_bufferlist.push_back(string(str_buffer, length));
+      rec_buflist.push_back(rec_buf);
+      //CHECK(store->Write(string(str_buffer, length), rec_buf));
       const string& pixels = image.pixel();
       for (int i = 0; i < kCIFARImageNBytes; i++)
         mean.set_data(i, mean.data(i) + static_cast<uint8_t>(pixels[i]));
       count += 1;
+    }
+    for (int itemid = 0; itemid < kCIFARBatchSize; ++itemid) {
+      CHECK(store->Write(str_bufferlist[shufflekey[itemid]], rec_buflist[shufflekey[itemid]]));
     }
   }
   store->Flush();
