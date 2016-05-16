@@ -457,7 +457,7 @@ void HashedParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
-  ratio_ = sqrt(1/proto_.compress_ratio());
+  ratio_ = sqrt(1.0/proto_.compress_ratio());
   history_.Reshape(hashsize_);
   update_.Reshape(hashsize_);
   comm_data_.Reshape(hashsize_);
@@ -524,7 +524,7 @@ void CCParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
-  ratio_ = sqrt(1/proto_.compress_ratio());
+  ratio_ = sqrt(1.0/proto_.compress_ratio());
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
@@ -585,7 +585,7 @@ void CCconvParam:: Setup(const vector<int>& shape) {
   //some conv layer has very few paramters,  i.e. 2K , cannot be compressed
   //leave a small constant 2K storage at least
   hashsize_ = data_.count()/proto_.compress_ratio() + 2000;
-  ratio_ = sqrt(1/proto_.compress_ratio()) +0.1;
+  ratio_ = sqrt(1.0/proto_.compress_ratio()) +0.1;
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
@@ -610,7 +610,7 @@ void CCpureParam:: Setup(const vector<int>& shape) {
   data_.Reshape(shape);
   grad_.Reshape(shape);
   hashsize_ = data_.count()/proto_.compress_ratio();
-  ratio_ = sqrt(1/proto_.compress_ratio());
+  ratio_ = sqrt(1.0/proto_.compress_ratio());
   indicatorsize_ = 4 * hashsize_;
   //can be compressed to later to 1 bit representation to achieve 1/8 of paramter size
   history_.Reshape(hashsize_+indicatorsize_);
