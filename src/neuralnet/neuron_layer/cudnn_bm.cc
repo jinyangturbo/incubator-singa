@@ -84,6 +84,25 @@ void CudnnBMLayer::ComputeFeature(int flag,
 
   // check training
   if ((flag & kTrain) != kTrain) {
+    CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(handle_,
+          mode_,
+          &alpha,
+          &beta,
+          src_desc_,
+          srclayers.at(0)->data(this).gpu_data(),
+          my_desc_,
+          data_.mutable_gpu_data(),
+          bnScaleBiasMeanVar_desc_,
+          bnScale_->data().gpu_data(),
+          bnBias_->data().gpu_data(),
+          exponentialAverageFactor,
+          resultRunningMean_->mutable_data()->mutable_gpu_data(),
+          resultRunningInvVariance_->mutable_data()->mutable_gpu_data(),
+          epsilon,
+          resultSaveMean_.mutable_gpu_data(),
+          resultSaveInvVariance_.mutable_gpu_data()));
+  }
+/*
     CHECK_CUDNN(cudnnBatchNormalizationForwardInference(handle_,
           mode_,
           &alpha,
@@ -98,7 +117,7 @@ void CudnnBMLayer::ComputeFeature(int flag,
           resultRunningMean_->data().gpu_data(),
           resultRunningInvVariance_->data().gpu_data(),
           epsilon));
-  } else {
+  }*/ else {
     CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(handle_,
           mode_,
           &alpha,
